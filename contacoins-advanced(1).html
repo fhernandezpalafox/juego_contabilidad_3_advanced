@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ContaCoins: Aventura Contable Avanzada</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        .game-area {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            height: 400px;
+            background: linear-gradient(to bottom, #87CEEB, #E0F7FA);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .player {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: #4F46E5;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 10;
+        }
+        
+        .platform {
+            position: absolute;
+            border-radius: 4px;
+        }
+        
+        .coin {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: #FBBF24;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #92400E;
+            z-index: 5;
+        }
+        
+        .concept {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: #3B82F6;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 5;
+        }
+        
+        .enemy {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: #EF4444;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 5;
+        }
+        
+        .moving-platform {
+            position: absolute;
+            border-radius: 4px;
+            z-index: 4;
+        }
+        
+        .finish-flag {
+            position: absolute;
+            width: 40px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 5;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        .float {
+            animation: float 2s ease-in-out infinite;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 80%;
+        }
+        
+        .checkpoint {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #10B981;
+            z-index: 5;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: rgba(59, 130, 246, 0.9);
+            color: white;
+            max-width: 300px;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease-out;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-indigo-700">ContaCoins: Aventura Contable</h1>
+            <p class="text-gray-600">¡Recolecta monedas y aprende conceptos de contabilidad!</p>
+        </div>
+        
+        <!-- Game Stats -->
+        <div class="flex flex-wrap justify-center gap-4 mb-4">
+            <div class="bg-white p-3 rounded-lg shadow-md">
+                <div class="flex items-center">
+                    <i class="fas fa-coins text-yellow-500 mr-2"></i>
+                    <div>
+                        <span class="text-sm text-gray-500">Monedas:</span>
+                        <span id="coin-counter" class="font-bold ml-1">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-3 rounded-lg shadow-md">
+                <div class="flex items-center">
+                    <i class="fas fa-book text-blue-500 mr-2"></i>
+                    <div>
+                        <span class="text-sm text-gray-500">Conceptos:</span>
+                        <span id="concept-counter" class="font-bold ml-1">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-3 rounded-lg shadow-md">
+                <div class="flex items-center">
+                    <i class="fas fa-heart text-red-500 mr-2"></i>
+                    <div>
+                        <span class="text-sm text-gray-500">Vidas:</span>
+                        <span id="lives-counter" class="font-bold ml-1">3</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-3 rounded-lg shadow-md">
+                <div class="flex items-center">
+                    <i class="fas fa-flag-checkered text-green-500 mr-2"></i>
+                    <div>
+                        <span class="text-sm text-gray-500">Nivel:</span>
+                        <span id="level-counter" class="font-bold ml-1">1</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Game Controls -->
+        <div class="bg-white p-4 rounded-lg shadow-md mb-4">
+            <h2 class="font-bold text-lg text-indigo-700 mb-2">Controles:</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div class="flex items-center bg-gray-50 p-2 rounded">
+                    <span class="bg-indigo-100 px-2 py-1 rounded mr-2">←</span>
+                    <span>Izquierda</span>
+                </div>
+                <div class="flex items-center bg-gray-50 p-2 rounded">
+                    <span class="bg-indigo-100 px-2 py-1 rounded mr-2">→</span>
+                    <span>Derecha</span>
+                </div>
+                <div class="flex items-center bg-gray-50 p-2 rounded">
+                    <span class="bg-indigo-100 px-2 py-1 rounded mr-2">↑</span>
+                    <span>Saltar</span>
+                </div>
+                <div class="flex items-center bg-gray-50 p-2 rounded">
+                    <span class="bg-indigo-100 px-2 py-1 rounded mr-2">R</span>
+                    <span>Reiniciar</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Game Area -->
+        <div id="game-area" class="game-area">
+            <div id="start-screen" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
+                <div class="text-center bg-white p-6 rounded-lg max-w-sm">
+                    <h2 class="text-2xl font-bold text-indigo-700 mb-4">¡Bienvenido a ContaCoins!</h2>
+                    <p class="mb-6 text-gray-700">Recolecta monedas y conceptos contables mientras evitas obstáculos y enemigos. ¡Cada nivel es más difícil!</p>
+                    <button id="start-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                        ¡Comenzar!
+                    </button>
+                </div>
+            </div>
+            
+            <div id="player" class="player">
+                <i class="fas fa-user-tie"></i>
+            </div>
+        </div>
+        
+        <!-- Current Concept Panel -->
+        <div id="concept-panel" class="mt-4 bg-white rounded-lg shadow-md p-4 hidden">
+            <h3 class="font-bold text-lg text-indigo-700 mb-2">Concepto recolectado:</h3>
+            <div id="concept-content" class="bg-indigo-50 p-3 rounded-lg">
+                <h4 id="concept-title" class="font-bold text-indigo-900 mb-1"></h4>
+                <p id="concept-description" class="text-gray-700"></p>
+            </div>
+        </div>
+        
+        <!-- Collected Concepts -->
+        <div id="collected-concepts-panel" class="mt-4 bg-white rounded-lg shadow-md p-4">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="font-bold text-lg text-indigo-700">Conceptos recolectados:</h3>
+                <button id="toggle-concepts-btn" class="text-indigo-600 hover:text-indigo-800">
+                    <i class="fas fa-chevron-down"></i> Mostrar
+                </button>
+            </div>
+            <div id="collected-concepts-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 hidden">
+                <!-- Will be populated dynamically -->
+            </div>
+            <div id="empty-concepts" class="text-center py-4 text-gray-500">
+                <p>Aún no has recolectado ningún concepto contable</p>
+            </div>
+        </div>
+        
+        <!-- Game Over Modal -->
+        <div id="game-over-modal" class="modal">
+            <div class="modal-content">
+                <div class="text-center">
+                    <div class="text-4xl mb-4">😢</div>
+                    <h2 class="text-2xl font-bold text-red-600 mb-2">¡Juego Terminado!</h2>
+                    <p class="mb-4 text-gray-700">¡No te rindas! Inténtalo de nuevo para aprender más conceptos de contabilidad.</p>
+                    
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-gray-500">Monedas:</span>
+                                <span id="final-coins" class="font-bold ml-1 text-yellow-500"></span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Conceptos:</span>
+                                <span id="final-concepts" class="font-bold ml-1 text-blue-500"></span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Nivel alcanzado:</span>
+                                <span id="final-level" class="font-bold ml-1 text-green-500"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button id="restart-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                        Jugar de nuevo
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Level Complete Modal -->
+        <div id="level-complete-modal" class="modal">
+            <div class="modal-content">
+                <div class="text-center">
+                    <div class="text-4xl mb-4">🎉</div>
+                    <h2 class="text-2xl font-bold text-green-600 mb-2">¡Nivel Completado!</h2>
+                    <p class="mb-4 text-gray-700">¡Felicidades! Has superado este nivel y estás a un paso más de convertirte en un experto contador.</p>
+                    
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-gray-500">Monedas:</span>
+                                <span id="level-coins" class="font-bold ml-1 text-yellow-500"></span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Conceptos:</span>
+                                <span id="level-concepts" class="font-bold ml-1 text-blue-500"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button id="next-level-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                        Siguiente Nivel
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Game Complete Modal -->
+        <div id="game-complete-modal" class="modal">
+            <div class="modal-content">
+                <div class="text-center">
+                    <div class="text-4xl mb-4">🏆</div>
+                    <h2 class="text-2xl font-bold text-yellow-600 mb-2">¡Juego Completado!</h2>
+                    <p class="mb-4 text-gray-700">¡Increíble! Has completado todos los niveles y dominas los conceptos básicos de contabilidad.</p>
+                    
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-gray-500">Total de monedas:</span>
+                                <span id="total-coins" class="font-bold ml-1 text-yellow-500"></span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Total de conceptos:</span>
+                                <span id="total-concepts" class="font-bold ml-1 text-blue-500"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button id="play-again-button" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                        Jugar de nuevo
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Notification -->
+        <div id="notification" class="notification">
+            <div id="notification-content"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Game elements
+        const gameArea = document.getElementById('game-area');
+        const player = document.getElementById('player');
+        const startScreen = document.getElementById('start-screen');
+        const startButton = document.getElementById('start-button');
+        const coinCounter = document.getElementById('coin-counter');
+        const conceptCounter = document.getElementById('concept-counter');
+        const livesCounter = document.getElementById('lives-counter');
+        const levelCounter = document.getElementById('level-counter');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const levelCompleteModal = document.getElementById('level-complete-modal');
+        const gameCompleteModal = document.getElementById('game-complete-modal');
+        const restartButton = document.getElementById('restart-button');
+        const nextLevelButton = document.getElementById('next-level-button');
+        const playAgainButton = document.getElementById('play-again-button');
+        const finalCoins = document.getElementById('final-coins');
+        const finalConcepts = document.getElementById('final-concepts');
+        const finalLevel = document.getElementById('final-level');
+        const levelCoins = document.getElementById('level-coins');
+        const levelConcepts = document.getElementById('level-concepts');
+        const totalCoins = document.getElementById('total-coins');
+        const totalConcepts = document.getElementById('total-concepts');
+        const conceptPanel = document.getElementById('concept-panel');
+        const conceptTitle = document.getElementById('concept-title');
+        const conceptDescription = document.getElementById('concept-description');
+        const collectedConceptsPanel = document.getElementById('collected-concepts-panel');
+        const collectedConceptsList = document.getElementById('collected-concepts-list');
+        const emptyConceptsMessage = document.getElementById('empty-concepts');
+        const toggleConceptsBtn = document.getElementById('toggle-concepts-btn');
+        const notification = document.getElementById('notification');
+        const notificationContent = document.getElementById('notification-content');
+        
+        // Game state
+        let gameRunning = false;
+        let currentLevel = 0;
+        let playerX = 50;
+        let playerY = 50;
+        let playerWidth = 40;
+        let playerHeight = 40;
+        let playerSpeedX = 0;
+        let playerSpeedY = 0;
+        let playerOnGround = false;
+        let coins = 0;
+        let conceptsCollected = [];
+        let totalConceptsCount = 0;
+        let lives = 3;
+        let keys = {};
+        let platforms = [];
+        let coinsArray = [];
+        let conceptsArray = [];
+        let enemiesArray = [];
+        let movingPlatforms = [];
+        let checkpoints = [];
+        let lastCheckpointX = 50;
+        let lastCheckpointY = 50;
+        let gameWidth = gameArea.clientWidth;
+        let gameHeight = gameArea.clientHeight;
+        let animationId;
+        let cameraOffset = 0;
+        let maxCameraOffset = 0;
+        
+        // Accounting concepts
+        const accountingConcepts = [
+            {
+                title: "Activo",
+                description: "Recursos controlados por una entidad, como resultado de sucesos pasados, de los que se espera obtener beneficios económicos futuros."
+            },
+            {
+                title: "Pasivo",
+                description: "Obligaciones presentes de la empresa, surgidas de eventos pasados, que en el futuro deberán liquidarse."
+            },
+            {
+                title: "Patrimonio",
+                description: "Parte residual de los activos de la entidad, una vez deducidos todos sus pasivos. Representa lo que pertenece a los dueños."
+            },
+            {
+                title: "Partida Doble",
+                description: "Principio fundamental de la contabilidad que establece que cada transacción afecta al menos dos cuentas, manteniendo la ecuación: Activo = Pasivo + Patrimonio."
+            },
+            {
+                title: "Balance General",
+                description: "También llamado Estado de Situación Financiera. Muestra los activos, pasivos y patrimonio de una empresa en un momento específico."
+            },
+            {
+                title: "Estado de Resultados",
+                description: "Informe financiero que muestra los ingresos, gastos y la utilidad o pérdida resultante en un periodo determinado."
+            },
+            {
+                title: "Depreciación",
+                description: "Disminución del valor de un activo fijo debido al uso, desgaste u obsolescencia a lo largo del tiempo."
+            },
+            {
+                title: "Impuesto al Valor Agregado",
+                description: "Impuesto indirecto sobre el consumo que se cobra en cada etapa de la producción y distribución de bienes y servicios."
+            },
+            {
+                title: "Asiento Contable",
+                description: "Registro de una transacción económica en el sistema contable, siguiendo el principio de partida doble."
+            },
+            {
+                title: "Punto de Equilibrio",
+                description: "Nivel de ventas donde los ingresos totales son iguales a los costos totales, resultando en una utilidad de cero."
+            },
+            {
+                title: "Razón de Liquidez",
+                description: "Indicador que mide la capacidad de una empresa para cumplir con sus obligaciones a corto plazo."
+            },
+            {
+                title: "Apalancamiento Financiero",
+                description: "Uso de deuda para aumentar la rentabilidad esperada del capital propio. Mide la relación entre deuda y patrimonio."
+            },
+            {
+                title: "Capital de Trabajo",
+                description: "Diferencia entre los activos circulantes y los pasivos circulantes, que indica la capacidad de la empresa para operar a corto plazo."
+            },
+            {
+                title: "Flujo de Efectivo",
+                description: "Movimiento de dinero que entra y sale de una empresa durante un periodo determinado."
+            },
+            {
+                title: "Margen de Contribución",
+                description: "Diferencia entre el precio de venta y los costos variables por unidad. Representa cuánto contribuye cada unidad vendida para cubrir costos fijos."
+            }
+        ];
+
+        // Game levels
+        const levels = [
+            // Nivel 1: Básico
+            {
+                background: 'linear-gradient(to bottom, #87CEEB, #E0F7FA)',
+                platforms: [
+                    { x: 0, y: 350, width: 200, height: 20, color: '#10B981' },
+                    { x: 250, y: 320, width: 150, height: 20, color: '#10B981' },
+                    { x: 450, y: 290, width: 200, height: 20, color: '#10B981' },
+                    { x: 700, y: 320, width: 150, height: 20, color: '#10B981' },
+                    { x: 900, y: 350, width: 300, height: 20, color: '#10B981' }
+                ],
+                coins: [
+                    { x: 100, y: 310 },
+                    { x: 300, y: 280 },
+                    { x: 520, y: 250 },
+                    { x: 750, y: 280 },
+                    { x: 950, y: 310 }
+                ],
+                concepts: [
+                    { x: 150, y: 310, id: 0 },
+                    { x: 550, y: 250, id: 1 },
+                    { x: 1000, y: 310, id: 2 }
+                ],
+                enemies: [],
+                movingPlatforms: [],
+                checkpoints: [
+                    { x: 650, y: 280 }
+                ],
+                finishX: 1150,
+                finishY: 290,
+                playerStartX: 50,
+                playerStartY: 300,
+                width: 1200
+            },
+            
+            // Nivel 2: Intermedio
+            {
+                background: 'linear-gradient(to bottom, #FEF3C7, #FDE68A)',
+                platforms: [
+                    { x: 0, y: 350, width: 150, height: 20, color: '#F59E0B' },
+                    { x: 200, y: 320, width: 100, height: 20, color: '#F59E0B' },
+                    { x: 350, y: 280, width: 100, height: 20, color: '#F59E0B' },
+                    { x: 500, y: 240, width: 100, height: 20, color: '#F59E0B' },
+                    { x: 650, y: 280, width: 100, height: 20, color: '#F59E0B' },
+                    { x: 800, y: 320, width: 100, height: 20, color: '#F59E0B' },
+                    { x: 950, y: 350, width: 250, height: 20, color: '#F59E0B' }
+                ],
+                coins: [
+                    { x: 50, y: 310 },
+                    { x: 230, y: 280 },
+                    { x: 380, y: 240 },
+                    { x: 530, y: 200 },
+                    { x: 680, y: 240 },
+                    { x: 830, y: 280 },
+                    { x: 1000, y: 310 }
+                ],
+                concepts: [
+                    { x: 380, y: 200, id: 3 },
+                    { x: 700, y: 240, id: 4 },
+                    { x: 1050, y: 310, id: 5 }
+                ],
+                enemies: [
+                    { x: 250, y: 300, width: 100, speed: 2 },
+                    { x: 700, y: 260, width: 100, speed: 2 }
+                ],
+                movingPlatforms: [
+                    { x: 250, y: 200, width: 80, height: 20, color: '#F59E0B', distance: 150, speed: 1.5, direction: 'horizontal' }
+                ],
+                checkpoints: [
+                    { x: 600, y: 240 }
+                ],
+                finishX: 1150,
+                finishY: 290,
+                playerStartX: 50,
+                playerStartY: 300,
+                width: 1200
+            },
+            
+            // Nivel 3: Avanzado
+            {
+                background: 'linear-gradient(to bottom, #DBEAFE, #93C5FD)',
+                platforms: [
+                    { x: 0, y: 350, width: 120, height: 20, color: '#3B82F6' },
+                    { x: 170, y: 300, width: 80, height: 20, color: '#3B82F6' },
+                    { x: 300, y: 250, width: 80, height: 20, color: '#3B82F6' },
+                    { x: 430, y: 200, width: 80, height: 20, color: '#3B82F6' },
+                    { x: 560, y: 250, width: 80, height: 20, color: '#3B82F6' },
+                    { x: 690, y: 300, width: 80, height: 20, color: '#3B82F6' },
+                    { x: 820, y: 350, width: 120, height: 20, color: '#3B82F6' },
+                    { x: 990, y: 300, width: 80, height: 20, color: '#3B82F6' },
+                    { x: 1120, y: 250, width: 80, height: 20, color: '#3B82F6' },
+                    { x: 1250, y: 300, width: 150, height: 20, color: '#3B82F6' }
+                ],
+                coins: [
+                    { x: 50, y: 310 },
+                    { x: 200, y: 260 },
+                    { x: 330, y: 210 },
+                    { x: 460, y: 160 },
+                    { x: 590, y: 210 },
+                    { x: 720, y: 260 },
+                    { x: 850, y: 310 },
+                    { x: 1020, y: 260 },
+                    { x: 1150, y: 210 },
+                    { x: 1300, y: 260 }
+                ],
+                concepts: [
+                    { x: 330, y: 170, id: 6 },
+                    { x: 720, y: 220, id: 7 },
+                    { x: 1150, y: 170, id: 8 }
+                ],
+                enemies: [
+                    { x: 200, y: 280, width: 50, speed: 2.5 },
+                    { x: 460, y: 180, width: 50, speed: 2.5 },
+                    { x: 720, y: 280, width: 50, speed: 2.5 },
+                    { x: 1020, y: 280, width: 50, speed: 2.5 }
+                ],
+                movingPlatforms: [
+                    { x: 250, y: 150, width: 80, height: 20, color: '#3B82F6', distance: 100, speed: 2, direction: 'horizontal' },
+                    { x: 500, y: 300, width: 80, height: 20, color: '#3B82F6', distance: 100, speed: 2, direction: 'vertical' },
+                    { x: 900, y: 200, width: 80, height: 20, color: '#3B82F6', distance: 100, speed: 2, direction: 'vertical' }
+                ],
+                checkpoints: [
+                    { x: 500, y: 200 },
+                    { x: 1000, y: 300 }
+                ],
+                finishX: 1350,
+                finishY: 250,
+                playerStartX: 50,
+                playerStartY: 300,
+                width: 1400
+            }
+        ];
+        
+        // Game constants
+        const GRAVITY = 0.6;
+        const JUMP_FORCE = 14;
+        const MOVE_SPEED = 5;
+        const FRICTION = 0.8;
+        const INVINCIBILITY_TIME = 1000; // ms
+        
+        // Setup keyboard controls
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            // Restart game with 'r' key
+            if (e.key === 'r') {
+                restartGame();
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Toggle collected concepts
+        toggleConceptsBtn.addEventListener('click', () => {
+            if (collectedConceptsList.classList.contains('hidden')) {
+                collectedConceptsList.classList.remove('hidden');
+                toggleConceptsBtn.innerHTML = '<i class="fas fa-chevron-up"></i> Ocultar';
+            } else {
+                collectedConceptsList.classList.add('hidden');
+                toggleConceptsBtn.innerHTML = '<i class="fas fa-chevron-down"></i> Mostrar';
+            }
+        });
+        
+        // Button event listeners
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', restartGame);
+        nextLevelButton.addEventListener('click', nextLevel);
+        playAgainButton.addEventListener('click', restartGame);
+        
+        // Initialize the first level
+        function initLevel(levelIndex) {
+            // Get current level data
+            const levelData = levels[levelIndex];
+            
+            // Reset player
+            playerX = levelData.playerStartX;
+            playerY = levelData.playerStartY;
+            playerSpeedX = 0;
+            playerSpeedY = 0;
+            playerOnGround = false;
+            lastCheckpointX = levelData.playerStartX;
+            lastCheckpointY = levelData.playerStartY;
+            
+            // Set max camera offset based on level width
+            maxCameraOffset = levelData.width - gameWidth;
+            
+            // Update level background
+            gameArea.style.background = levelData.background;
+            
+            // Clear existing game elements
+            clearGameElements();
+            
+            // Create level elements
+            createLevelElements(levelData);
+            
+            // Update UI
+            updateUI();
+            
+            // Position player
+            updatePlayerPosition();
+        }
+        
+        function clearGameElements() {
+            // Remove all game elements
+            const elements = [...platforms, ...coinsArray, ...conceptsArray, 
+                              ...enemiesArray, ...movingPlatforms, ...checkpoints];
+            
+            elements.forEach(element => {
+                if (element.element && element.element.parentNode) {
+                    element.element.parentNode.removeChild(element.element);
+                }
+            });
+            
+            // Remove finish flag if exists
+            const finishFlag = document.getElementById('finish-flag');
+            if (finishFlag) finishFlag.remove();
+            
+            // Clear arrays
+            platforms = [];
+            coinsArray = [];
+            conceptsArray = [];
+            enemiesArray = [];
+            movingPlatforms = [];
+            checkpoints = [];
+        }
+        
+        function createLevelElements(levelData) {
+            // Create platforms
+            levelData.platforms.forEach(platform => {
+                createPlatform(platform.x, platform.y, platform.width, platform.height, platform.color);
+            });
+            
+            // Create coins
+            levelData.coins.forEach(coin => {
+                createCoin(coin.x, coin.y);
+            });
+            
+            // Create concepts
+            levelData.concepts.forEach(concept => {
+                createConcept(concept.x, concept.y, concept.id);
+            });
+            
+            // Create enemies
+            levelData.enemies.forEach(enemy => {
+                createEnemy(enemy.x, enemy.y, enemy.width, enemy.speed);
+            });
+            
+            // Create moving platforms
+            levelData.movingPlatforms.forEach(platform => {
+                createMovingPlatform(
+                    platform.x, platform.y, platform.width, platform.height, 
+                    platform.color, platform.distance, platform.speed, platform.direction
+                );
+            });
+            
+            // Create checkpoints
+            levelData.checkpoints.forEach(checkpoint => {
+                createCheckpoint(checkpoint.x, checkpoint.y);
+            });
+            
+            // Create finish flag
+            createFinishFlag(levelData.finishX, levelData.finishY);
+        }
+        
+        function createPlatform(x, y, width, height, color) {
+            const platformElement = document.createElement('div');
+            platformElement.className = 'platform';
+            platformElement.style.left = `${x}px`;
+            platformElement.style.top = `${y}px`;
+            platformElement.style.width = `${width}px`;
+            platformElement.style.height = `${height}px`;
+            platformElement.style.backgroundColor = color;
+            gameArea.appendChild(platformElement);
+            
+            platforms.push({
+                element: platformElement,
+                x: x,
+                y: y,
+                width: width,
+                height: height
+            });
+        }
+        
+        function createCoin(x, y) {
+            const coinElement = document.createElement('div');
+            coinElement.className = 'coin float';
+            coinElement.style.left = `${x}px`;
+            coinElement.style.top = `${y}px`;
+            coinElement.innerHTML = '<i class="fas fa-dollar-sign"></i>';
+            gameArea.appendChild(coinElement);
+            
+            coinsArray.push({
+                element: coinElement,
+                x: x,
+                y: y,
+                width: 30,
+                height: 30,
+                collected: false
+            });
+        }
+        
+        function createConcept(x, y, conceptId) {
+            const conceptElement = document.createElement('div');
+            conceptElement.className = 'concept float';
+            conceptElement.style.left = `${x}px`;
+            conceptElement.style.top = `${y}px`;
+            conceptElement.innerHTML = '<i class="fas fa-book-open"></i>';
+            gameArea.appendChild(conceptElement);
+            
+            conceptsArray.push({
+                element: conceptElement,
+                x: x,
+                y: y,
+                width: 40,
+                height: 40,
+                collected: false,
+                conceptId: conceptId
+            });
+        }
+        
+        function createEnemy(x, y, width, speed) {
+            const enemyElement = document.createElement('div');
+            enemyElement.className = 'enemy';
+            enemyElement.style.left = `${x}px`;
+            enemyElement.style.top = `${y}px`;
+            enemyElement.innerHTML = '<i class="fas fa-times"></i>';
+            gameArea.appendChild(enemyElement);
+            
+            enemiesArray.push({
+                element: enemyElement,
+                x: x,
+                y: y,
+                startX: x,
+                width: width,
+                speed: speed,
+                direction: 1,
+                timer: 0
+            });
+        }
+        
+        function createMovingPlatform(x, y, width, height, color, distance, speed, direction) {
+            const platformElement = document.createElement('div');
+            platformElement.className = 'moving-platform';
+            platformElement.style.left = `${x}px`;
+            platformElement.style.top = `${y}px`;
+            platformElement.style.width = `${width}px`;
+            platformElement.style.height = `${height}px`;
+            platformElement.style.backgroundColor = color;
+            gameArea.appendChild(platformElement);
+            
+            movingPlatforms.push({
+                element: platformElement,
+                x: x,
+                y: y,
+                startX: x,
+                startY: y,
+                width: width,
+                height: height,
+                distance: distance,
+                speed: speed,
+                direction: direction,
+                progress: 0
+            });
+        }
+        
+        function createCheckpoint(x, y) {
+            const checkpointElement = document.createElement('div');
+            checkpointElement.className = 'checkpoint float';
+            checkpointElement.style.left = `${x}px`;
+            checkpointElement.style.top = `${y}px`;
+            checkpointElement.innerHTML = '<i class="fas fa-flag text-3xl"></i>';
+            gameArea.appendChild(checkpointElement);
+            
+            checkpoints.push({
+                element: checkpointElement,
+                x: x,
+                y: y,
+                width: 40,
+                height: 40,
+                activated: false
+            });
+        }
+        
+        function createFinishFlag(x, y) {
+            const flagElement = document.createElement('div');
+            flagElement.id = 'finish-flag';
+            flagElement.className = 'finish-flag';
+            flagElement.style.left = `${x}px`;
+            flagElement.style.top = `${y}px`;
+            flagElement.innerHTML = '<i class="fas fa-flag-checkered text-3xl text-green-600"></i>';
+            gameArea.appendChild(flagElement);
+        }
+        
+        function startGame() {
+            startScreen.style.display = 'none';
+            gameRunning = true;
+            currentLevel = 0;
+            coins = 0;
+            conceptsCollected = [];
+            lives = 3;
+            
+            // Initialize first level
+            initLevel(currentLevel);
+            
+            // Start game loop
+            gameLoop();
+            
+            // Show notification
+            showNotification(`¡Nivel ${currentLevel + 1} iniciado! Recolecta monedas y conceptos.`);
+        }
+        
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            // Update moving elements
+            updateEnemies();
+            updateMovingPlatforms();
+            
+            // Handle player movement
+            updatePlayer();
+            
+            // Update camera
+            updateCamera();
+            
+            // Check for collisions
+            checkCollisions();
+            
+            // Continue the game loop
+            animationId = requestAnimationFrame(gameLoop);
+        }
+        
+        function updatePlayer() {
+            // Apply gravity
+            playerSpeedY += GRAVITY;
+            
+            // Handle left/right movement
+            if (keys['ArrowLeft'] || keys['a']) {
+                playerSpeedX -= MOVE_SPEED;
+                player.innerHTML = '<i class="fas fa-user-tie fa-flip-horizontal"></i>';
+            }
+            
+            if (keys['ArrowRight'] || keys['d']) {
+                playerSpeedX += MOVE_SPEED;
+                player.innerHTML = '<i class="fas fa-user-tie"></i>';
+            }
+            
+            // Apply friction
+            playerSpeedX *= FRICTION;
+            
+            // Handle jumping
+            if ((keys['ArrowUp'] || keys[' '] || keys['w']) && playerOnGround) {
+                playerSpeedY = -JUMP_FORCE;
+                playerOnGround = false;
+            }
+            
+            // Prevent excessive speed
+            if (playerSpeedX > 10) playerSpeedX = 10;
+            if (playerSpeedX < -10) playerSpeedX = -10;
+            if (playerSpeedY > 15) playerSpeedY = 15;
+            
+            // Update position
+            playerX += playerSpeedX;
+            playerY += playerSpeedY;
+            
+            // Prevent going out of bounds on left
+            if (playerX < 0) playerX = 0;
+            
+            // Check if fallen off the bottom
+            if (playerY > gameHeight) {
+                loseLife();
+                return;
+            }
+            
+            // Reset ground state
+            playerOnGround = false;
+            
+            // Update position on screen
+            updatePlayerPosition();
+        }
+        
+        function updatePlayerPosition() {
+            const screenX = playerX - cameraOffset;
+            player.style.left = `${screenX}px`;
+            player.style.top = `${playerY}px`;
+        }
+        
+        function updateCamera() {
+            // Calculate target camera position (follow player)
+            const targetOffset = Math.max(0, playerX - gameWidth / 3);
+            
+            // Limit camera to level bounds
+            const limitedOffset = Math.min(targetOffset, maxCameraOffset);
+            
+            // Smooth camera movement
+            cameraOffset += (limitedOffset - cameraOffset) * 0.1;
+            
+            // Apply camera offset to all elements
+            updateElementsPosition();
+        }
+        
+        function updateElementsPosition() {
+            // Update platforms
+            platforms.forEach(platform => {
+                platform.element.style.left = `${platform.x - cameraOffset}px`;
+            });
+            
+            // Update coins
+            coinsArray.forEach(coin => {
+                if (!coin.collected) {
+                    coin.element.style.left = `${coin.x - cameraOffset}px`;
+                }
+            });
+            
+            // Update concepts
+            conceptsArray.forEach(concept => {
+                if (!concept.collected) {
+                    concept.element.style.left = `${concept.x - cameraOffset}px`;
+                }
+            });
+            
+            // Update enemies
+            enemiesArray.forEach(enemy => {
+                enemy.element.style.left = `${enemy.x - cameraOffset}px`;
+            });
+            
+            // Update moving platforms
+            movingPlatforms.forEach(platform => {
+                platform.element.style.left = `${platform.x - cameraOffset}px`;
+            });
+            
+            // Update checkpoints
+            checkpoints.forEach(checkpoint => {
+                checkpoint.element.style.left = `${checkpoint.x - cameraOffset}px`;
+            });
+            
+            // Update finish flag
+            const finishFlag = document.getElementById('finish-flag');
+            if (finishFlag) {
+                const flagX = parseInt(finishFlag.style.left);
+                finishFlag.style.left = `${flagX - cameraOffset}px`;
+            }
+            
+            // Update player
+            updatePlayerPosition();
+        }
+        
+        function updateEnemies() {
+            enemiesArray.forEach(enemy => {
+                // Move back and forth
+                enemy.x += enemy.speed * enemy.direction;
+                
+                // Check if enemy should change direction
+                if (enemy.x > enemy.startX + enemy.width || enemy.x < enemy.startX) {
+                    enemy.direction *= -1;
+                }
+                
+                // Update enemy position
+                enemy.element.style.left = `${enemy.x - cameraOffset}px`;
+            });
+        }
+        
+        function updateMovingPlatforms() {
+            movingPlatforms.forEach(platform => {
+                // Update progress
+                platform.progress += platform.speed;
+                
+                // Calculate new position based on direction
+                if (platform.direction === 'horizontal') {
+                    platform.x = platform.startX + Math.sin(platform.progress * 0.05) * platform.distance;
+                } else { // vertical
+                    platform.y = platform.startY + Math.sin(platform.progress * 0.05) * platform.distance;
+                }
+                
+                // Update platform position
+                platform.element.style.left = `${platform.x - cameraOffset}px`;
+                platform.element.style.top = `${platform.y}px`;
+            });
+        }
+        
+        function checkCollisions() {
+            // Check platform collisions
+            platforms.forEach(platform => {
+                if (collidesWith(playerX, playerY, playerWidth, playerHeight, 
+                                platform.x, platform.y, platform.width, platform.height)) {
+                    
+                    // Landing on top of platform
+                    if (playerSpeedY > 0 && playerY + playerHeight - playerSpeedY <= platform.y) {
+                        playerY = platform.y - playerHeight;
+                        playerSpeedY = 0;
+                        playerOnGround = true;
+                    }
+                    // Hitting bottom of platform
+                    else if (playerSpeedY < 0 && playerY >= platform.y + platform.height) {
+                        playerY = platform.y + platform.height;
+                        playerSpeedY = 0;
+                    }
+                    // Left collision
+                    else if (playerSpeedX > 0 && playerX + playerWidth - playerSpeedX <= platform.x) {
+                        playerX = platform.x - playerWidth;
+                        playerSpeedX = 0;
+                    }
+                    // Right collision
+                    else if (playerSpeedX < 0 && playerX >= platform.x + platform.width) {
+                        playerX = platform.x + platform.width;
+                        playerSpeedX = 0;
+                    }
+                }
+            });
+            
+            // Check moving platform collisions
+            movingPlatforms.forEach(platform => {
+                if (collidesWith(playerX, playerY, playerWidth, playerHeight, 
+                                platform.x, platform.y, platform.width, platform.height)) {
+                    
+                    // Landing on top of platform
+                    if (playerSpeedY > 0 && playerY + playerHeight - playerSpeedY <= platform.y) {
+                        playerY = platform.y - playerHeight;
+                        playerSpeedY = 0;
+                        playerOnGround = true;
+                        
+                        // Move with the platform horizontally
+                        if (platform.direction === 'horizontal') {
+                            playerX += platform.x - platform.prevX;
+                        }
+                    }
+                    // Other collisions same as regular platforms
+                    else if (playerSpeedY < 0 && playerY >= platform.y + platform.height) {
+                        playerY = platform.y + platform.height;
+                        playerSpeedY = 0;
+                    }
+                    else if (playerSpeedX > 0 && playerX + playerWidth - playerSpeedX <= platform.x) {
+                        playerX = platform.x - playerWidth;
+                        playerSpeedX = 0;
+                    }
+                    else if (playerSpeedX < 0 && playerX >= platform.x + platform.width) {
+                        playerX = platform.x + platform.width;
+                        playerSpeedX = 0;
+                    }
+                }
+                
+                // Store previous position for movement calculations
+                platform.prevX = platform.x;
+                platform.prevY = platform.y;
+            });
+            
+            // Check coin collisions
+            coinsArray.forEach(coin => {
+                if (!coin.collected && collidesWith(playerX, playerY, playerWidth, playerHeight,
+                                                coin.x, coin.y, coin.width, coin.height)) {
+                    collectCoin(coin);
+                }
+            });
+            
+            // Check concept collisions
+            conceptsArray.forEach(concept => {
+                if (!concept.collected && collidesWith(playerX, playerY, playerWidth, playerHeight,
+                                                    concept.x, concept.y, concept.width, concept.height)) {
+                    collectConcept(concept);
+                }
+            });
+            
+            // Check enemy collisions
+            enemiesArray.forEach(enemy => {
+                if (!player.invincible && collidesWith(playerX, playerY, playerWidth, playerHeight,
+                                                    enemy.x, enemy.y, 30, 30)) {
+                    loseLife();
+                }
+            });
+            
+            // Check checkpoint collisions
+            checkpoints.forEach(checkpoint => {
+                if (!checkpoint.activated && collidesWith(playerX, playerY, playerWidth, playerHeight,
+                                                        checkpoint.x, checkpoint.y, checkpoint.width, checkpoint.height)) {
+                    activateCheckpoint(checkpoint);
+                }
+            });
+            
+            // Check finish flag collision
+            const finishFlag = document.getElementById('finish-flag');
+            if (finishFlag) {
+                const flagX = parseInt(finishFlag.style.left) + cameraOffset;
+                const flagY = parseInt(finishFlag.style.top);
+                
+                if (collidesWith(playerX, playerY, playerWidth, playerHeight,
+                                flagX, flagY, 40, 60)) {
+                    completeLevel();
+                }
+            }
+        }
+        
+        function collidesWith(x1, y1, w1, h1, x2, y2, w2, h2) {
+            return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
+        }
+        
+        function collectCoin(coin) {
+            // Mark as collected
+            coin.collected = true;
+            coin.element.style.display = 'none';
+            
+            // Update score
+            coins++;
+            coinCounter.textContent = coins;
+            
+            // Visual feedback
+            coinCounter.parentElement.classList.add('bg-yellow-100');
+            setTimeout(() => {
+                coinCounter.parentElement.classList.remove('bg-yellow-100');
+            }, 300);
+        }
+        
+        function collectConcept(concept) {
+            // Mark as collected
+            concept.collected = true;
+            concept.element.style.display = 'none';
+            
+            // Get concept data
+            const conceptData = accountingConcepts[concept.conceptId];
+            
+            // Add to collected concepts
+            conceptsCollected.push(conceptData);
+            
+            // Update counter
+            conceptCounter.textContent = conceptsCollected.length;
+            
+            // Visual feedback
+            conceptCounter.parentElement.classList.add('bg-blue-100');
+            setTimeout(() => {
+                conceptCounter.parentElement.classList.remove('bg-blue-100');
+            }, 300);
+            
+            // Show concept details
+            showConcept(conceptData);
+            
+            // Update concepts list
+            updateConceptsList();
+            
+            // Show notification
+            showNotification(`¡Has aprendido sobre "${conceptData.title}"!`);
+        }
+        
+        function showConcept(conceptData) {
+            // Set concept data
+            conceptTitle.textContent = conceptData.title;
+            conceptDescription.textContent = conceptData.description;
+            
+            // Show panel
+            conceptPanel.classList.remove('hidden');
+        }
+        
+        function updateConceptsList() {
+            if (conceptsCollected.length === 0) {
+                collectedConceptsList.classList.add('hidden');
+                emptyConceptsMessage.classList.remove('hidden');
+                return;
+            }
+            
+            // Hide empty message, show list
+            emptyConceptsMessage.classList.add('hidden');
+            
+            // Generate HTML for concepts
+            const html = conceptsCollected.map(concept => `
+                <div class="bg-indigo-50 p-3 rounded-lg hover:bg-indigo-100 transition">
+                    <h4 class="font-bold text-indigo-900 mb-1">${concept.title}</h4>
+                    <p class="text-sm text-gray-700">${concept.description}</p>
+                </div>
+            `).join('');
+            
+            collectedConceptsList.innerHTML = html;
+        }
+        
+        function activateCheckpoint(checkpoint) {
+            // Mark as activated
+            checkpoint.activated = true;
+            checkpoint.element.innerHTML = '<i class="fas fa-flag text-3xl text-green-500"></i>';
+            
+            // Set checkpoint position
+            lastCheckpointX = checkpoint.x;
+            lastCheckpointY = checkpoint.y - playerHeight;
+            
+            // Show notification
+            showNotification("¡Punto de control activado!");
+        }
+        
+        function loseLife() {
+            // Only lose life if not invincible
+            if (player.invincible) return;
+            
+            // Decrease lives
+            lives--;
+            livesCounter.textContent = lives;
+            
+            // Visual feedback
+            livesCounter.parentElement.classList.add('bg-red-200');
+            setTimeout(() => {
+                livesCounter.parentElement.classList.remove('bg-red-200');
+            }, 500);
+            
+            // Check game over
+            if (lives <= 0) {
+                gameOver();
+                return;
+            }
+            
+            // Set temporary invincibility
+            player.invincible = true;
+            player.classList.add('opacity-50');
+            
+            setTimeout(() => {
+                player.invincible = false;
+                player.classList.remove('opacity-50');
+            }, INVINCIBILITY_TIME);
+            
+            // Reset player to last checkpoint
+            playerX = lastCheckpointX;
+            playerY = lastCheckpointY;
+            playerSpeedX = 0;
+            playerSpeedY = 0;
+            
+            // Show notification
+            showNotification("¡Has perdido una vida! Cuidado con caer o golpear enemigos.", "bg-red-500");
+        }
+        
+        function gameOver() {
+            // Stop the game
+            gameRunning = false;
+            cancelAnimationFrame(animationId);
+            
+            // Update final stats
+            finalCoins.textContent = coins;
+            finalConcepts.textContent = conceptsCollected.length;
+            finalLevel.textContent = currentLevel + 1;
+            
+            // Show game over modal
+            gameOverModal.style.display = 'flex';
+        }
+        
+        function completeLevel() {
+            // Stop the game
+            gameRunning = false;
+            cancelAnimationFrame(animationId);
+            
+            // Update level stats
+            levelCoins.textContent = coins;
+            levelConcepts.textContent = conceptsCollected.length;
+            
+            // Check if this was the last level
+            if (currentLevel >= levels.length - 1) {
+                // Game completed
+                totalCoins.textContent = coins;
+                totalConcepts.textContent = conceptsCollected.length;
+                gameCompleteModal.style.display = 'flex';
+            } else {
+                // More levels to go
+                levelCompleteModal.style.display = 'flex';
+            }
+        }
+        
+        function nextLevel() {
+            // Hide modal
+            levelCompleteModal.style.display = 'none';
+            
+            // Increase level
+            currentLevel++;
+            
+            // Update level counter
+            levelCounter.textContent = currentLevel + 1;
+            
+            // Initialize next level
+            initLevel(currentLevel);
+            
+            // Resume game
+            gameRunning = true;
+            gameLoop();
+            
+            // Show notification
+            showNotification(`¡Nivel ${currentLevel + 1} iniciado! Aumenta la dificultad.`);
+        }
+        
+        function restartGame() {
+            // Hide modals
+            gameOverModal.style.display = 'none';
+            levelCompleteModal.style.display = 'none';
+            gameCompleteModal.style.display = 'none';
+            
+            // Reset to level 1
+            currentLevel = 0;
+            coins = 0;
+            conceptsCollected = [];
+            lives = 3;
+            
+            // Update UI
+            updateUI();
+            
+            // Hide concept panel
+            conceptPanel.classList.add('hidden');
+            
+            // Update concepts list
+            updateConceptsList();
+            
+            // Initialize first level
+            initLevel(currentLevel);
+            
+            // Resume game
+            gameRunning = true;
+            gameLoop();
+            
+            // Show notification
+            showNotification("¡Juego reiniciado! Buena suerte.");
+        }
+        
+        function updateUI() {
+            coinCounter.textContent = coins;
+            conceptCounter.textContent = conceptsCollected.length;
+            livesCounter.textContent = lives;
+            levelCounter.textContent = currentLevel + 1;
+        }
+        
+        function showNotification(message, bgColor = 'bg-blue-500') {
+            // Update notification
+            notification.className = 'notification ' + bgColor;
+            notificationContent.textContent = message;
+            
+            // Show and hide after delay
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // Initialize the game on load
+        window.addEventListener('load', () => {
+            // Set player invincibility
+            player.invincible = false;
+            
+            // Initialize the first level data (but don't start yet)
+            initLevel(0);
+            
+            // Set initial UI
+            updateUI();
+            
+            // Make sure event listeners are set
+            startButton.addEventListener('click', startGame);
+            restartButton.addEventListener('click', restartGame);
+            nextLevelButton.addEventListener('click', nextLevel);
+            playAgainButton.addEventListener('click', restartGame);
+        });
+    </script>
+</body>
+</html>
